@@ -1,0 +1,85 @@
+﻿[
+  {
+    "id": "pan_card",
+    "name": "New PAN Card Application (Form 49A)",
+    "description": "Application for allotment of a 10-digit alphanumeric Permanent Account Number (PAN) for Indian citizens, entities, and trusts under the Income Tax Department.",
+    "steps": [
+      "Visit the official Protean (NSDL) e-Gov or UTIITSL online portal (or visit an authorized TIN-FC center).",
+      "Select Application Type as 'Form 49A - Indian Citizen' and choose Category (e.g., Individual).",
+      "Fill in personal details: Full Name, Date of Birth, Gender, Father's Name, and Address.",
+      "Choose submission mode: Paperless e-KYC/e-Sign (via Aadhaar OTP), Scanned images upload, or Physical document dispatch.",
+      "Pay the prescribed application processing fee using Net Banking, Debit/Credit Card, or UPI.",
+      "Download and save the 15-digit acknowledgement slip to track delivery and processing status.",
+      "If physical mode was selected, mail the signed form with self-attested document copies to the NSDL/UTIITSL processing center within 15 days."
+    ],
+    "required_documents": [
+      "Proof of Identity (POI): Aadhaar Card, Voter ID, Passport, or Driving License",
+      "Proof of Address (POA): Aadhaar Card, Electricity Bill (< 3 months), Bank Account Statement, or Post Office Passbook",
+      "Proof of Date of Birth (DOB): Aadhaar Card, Birth Certificate, Matriculation Marksheet, or Passport",
+      "Two recent passport-size color photographs (3.5 cm x 2.5 cm) for physical applications"
+    ],
+    "authority": {
+      "type": "Income Tax Department (via Protean eGov Technologies / UTIITSL)",
+      "mode": "both",
+      "note": "confirm exact details at your nearest center, as requirements vary by state"
+    },
+    "estimated_time": "10 to 15 working days for physical card delivery; 2 to 3 days for Instant e-PAN",
+    "fees": "₹107 (including GST) for dispatch within India; ₹1,017 for overseas address; e-PAN is free/nominal"
+  },
+  {
+    "id": "aadhaar_update",
+    "name": "Aadhaar Card Correction & Update",
+    "description": "Process to update or correct demographic details (Name, Address, Date of Birth, Gender, Mobile Number) or biometric data (Fingerprints, Iris, Photo) with UIDAI.",
+    "steps": [
+      "Check update eligibility: Address and document updates can be done online via the myAadhaar portal; Mobile number, Name corrections, and Biometrics require an in-person Aadhaar Enrolment Center visit.",
+      "For Online (Address Update): Log in to the myAadhaar portal using Aadhaar Number and OTP sent to registered mobile.",
+      "Select 'Update Address in Aadhaar', enter new address details, and upload valid supporting proof.",
+      "For In-Person Updates (Name, DOB, Mobile, Biometrics): Book an appointment online via UIDAI portal or walk into an authorized Aadhaar Seva Kendra / Bank / Post Office center.",
+      "Fill the Aadhaar Correction Form and present original verification documents to the operator.",
+      "Provide biometric authentication and verify the operator's entry on screen.",
+      "Collect the Update Request Number (URN) acknowledgement slip and track status on the UIDAI portal."
+    ],
+    "required_documents": [
+      "For Name Correction: Proof of Identity (Passport, PAN Card, Voter ID, Ration Card with photo)",
+      "For Address Update: Proof of Address (Electricity/Water Bill < 3 months, Rent Agreement, Bank Passbook, Passport)",
+      "For DOB Correction: Proof of Date of Birth (Birth Certificate, SSLC/10th Certificate, Passport)",
+      "Existing Aadhaar Card number / copy"
+    ],
+    "authority": {
+      "type": "Unique Identification Authority of India (UIDAI) / Aadhaar Seva Kendra",
+      "mode": "both",
+      "note": "confirm exact details at your nearest center, as requirements vary by state"
+    },
+    "estimated_time": "5 to 15 working days (maximum 30 days under standard SLA)",
+    "fees": "₹50 for demographic updates; ₹100 for biometric update; Online document updates periodically free on portal"
+  },
+  {
+    "id": "passport_renewal",
+    "name": "Passport Renewal / Re-issue",
+    "description": "Application for re-issue of Indian Passport due to expiry, exhaustion of visa pages, change in personal particulars, or damaged/lost booklet through the Ministry of External Affairs.",
+    "steps": [
+      "Register and create an account on the official Passport Seva Portal (passportindia.gov.in) or mPassport Seva app.",
+      "Select 'Apply for Fresh Passport/Re-issue of Passport' and choose Normal or Tatkaal scheme (36 or 60 pages booklet).",
+      "Fill in the online application form with applicant details, family information, address, and past passport particulars.",
+      "Make the online fee payment and schedule an appointment at the nearest Passport Seva Kendra (PSK) or Post Office Passport Seva Kendra (POPSK).",
+      "Print or save the Application Receipt containing the Appointment Batch and ARN (Application Reference Number).",
+      "Visit the designated PSK/POPSK on the scheduled date and time with original documents and self-attested photocopies.",
+      "Complete the three-stage counter verification (Counter A: Biometrics & Photo, Counter B: Document Verification, Counter C: Granting).",
+      "Complete Local Police Verification if required for your address status.",
+      "Receive the renewed passport via Speed Post at your registered residence."
+    ],
+    "required_documents": [
+      "Old original Passport with self-attested photocopies of first two and last two pages (including ECR/Non-ECR page)",
+      "Proof of Present Address (Aadhaar Card, Utility Bill, Bank Passbook, Spouse Passport)",
+      "Proof of Date of Birth (Aadhaar Card, Birth Certificate, School Leaving Certificate)",
+      "Documentary proof for any change in personal particulars (e.g., Marriage Certificate, Gazette notification)"
+    ],
+    "authority": {
+      "type": "Passport Seva Kendra (PSK) / Regional Passport Office (RPO), Ministry of External Affairs",
+      "mode": "both",
+      "note": "confirm exact details at your nearest center, as requirements vary by state"
+    },
+    "estimated_time": "Normal: 15 to 30 working days (post police verification); Tatkaal: 1 to 3 working days",
+    "fees": "Normal (36 pages): ₹1,500; Normal (60 pages): ₹2,000; Tatkaal: Additional ₹2,000"
+  }
+]

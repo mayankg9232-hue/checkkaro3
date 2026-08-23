@@ -1,0 +1,152 @@
+[
+  {
+    "id": "loan_documentation",
+    "name": "Loan Documentation",
+    "description": "Comprehensive bank-specific and loan-type guidance for applying for loans across major Indian banks.",
+    "loan_types": [
+      "Home Loan",
+      "Education Loan",
+      "Personal Loan",
+      "Vehicle Loan",
+      "Business Loan"
+    ],
+    "banks": [
+      "IDFC FIRST Bank",
+      "HDFC Bank",
+      "Kotak Mahindra Bank",
+      "State Bank of India",
+      "ICICI Bank",
+      "IndusInd Bank",
+      "Union Bank",
+      "RBL Bank",
+      "Bank of India",
+      "Punjab National Bank",
+      "Yes Bank",
+      "Axis Bank"
+    ],
+    "general_required_documents": [
+      "ID proof (Aadhaar/PAN/Passport)",
+      "Address proof",
+      "Income proof (salary slips/ITR)",
+      "Bank statements (last 6 months)",
+      "Passport-size photographs",
+      "Property documents (for home loans)",
+      "Admission letter and fee structure (for education loans)",
+      "Business proof/registration (for business loans)"
+    ],
+    "general_steps": [
+      "Check eligibility criteria for your chosen loan type and bank",
+      "Gather required documents",
+      "Submit application (online via bank portal/app, or offline at a branch)",
+      "Bank verifies documents and may request additional proof",
+      "Loan sanction and offer letter issued if approved",
+      "Disbursement after final agreement/documentation"
+    ],
+    "steps": [
+      "Check eligibility criteria for your chosen loan type and bank",
+      "Gather required documents",
+      "Submit application (online via bank portal/app, or offline at a branch)",
+      "Bank verifies documents and may request additional proof",
+      "Loan sanction and offer letter issued if approved",
+      "Disbursement after final agreement/documentation"
+    ],
+    "required_documents": [
+      "ID proof (Aadhaar/PAN/Passport)",
+      "Address proof",
+      "Income proof (salary slips/ITR)",
+      "Bank statements (last 6 months)",
+      "Passport-size photographs",
+      "Property documents (for home loans)",
+      "Admission letter and fee structure (for education loans)",
+      "Business proof/registration (for business loans)"
+    ],
+    "authority": {
+      "type": "your chosen bank's branch or loan department, or their official website/app",
+      "mode": "both",
+      "note": "Exact eligibility, interest rates, and processing fees vary by bank and change periodically — always confirm current details directly with the bank before applying."
+    },
+    "estimated_time": "Varies by bank (usually 2 to 15 working days depending on loan category)",
+    "fees": "Varies by bank (processing fee, stamp duty, valuation charges if applicable)"
+  },
+  {
+    "id": "kyc_account_opening",
+    "name": "New Bank Account Opening & KYC Verification",
+    "description": "Step-by-step procedure to open a savings or current bank account with full Know Your Customer (KYC) compliance via digital (Video KYC) or branch visit.",
+    "steps": [
+      "Select bank and account type (Regular Savings, Zero Balance / BSBD, Salary Account, or Current Account).",
+      "Initiate application online via bank official website / mobile app OR collect Account Opening Form (AOF) at your nearest branch.",
+      "Fill personal demographic details: Full Name, Date of Birth, PAN, Aadhaar Number, Occupation, Annual Income, and Nominee details.",
+      "Select KYC Verification Mode: Online Video KYC (V-KYC) with live photo & PAN display, OR in-person biometric authentication at branch.",
+      "For Video KYC: Join live video call with bank official, show original physical PAN card, answer security questions, and capture signature on camera.",
+      "Deposit minimum initial balance (if required for the chosen account category).",
+      "Receive Account Number, Customer ID (CIF), Debit Card, Cheque Book, and Welcome Kit at your registered residential address."
+    ],
+    "required_documents": [
+      "Officially Valid Document (OVD) for Identity: PAN Card (mandatory or Form 60) and Aadhaar Card",
+      "Proof of Address (POA): Aadhaar Card, Passport, Voter ID, or Utility Bill (< 3 months old)",
+      "Two recent passport-size color photographs (for physical branch opening)",
+      "Nominee identification and age proof",
+      "Business registration and GST certificate (for Current Accounts)"
+    ],
+    "authority": {
+      "type": "Your Bank Branch / Digital Account Portal",
+      "mode": "both",
+      "note": "confirm minimum balance requirements directly with your branch"
+    },
+    "estimated_time": "Digital / Video KYC: Instant to 24 hours; Branch opening: 2 to 4 working days",
+    "fees": "Zero application fee; initial deposit varies by account type and branch location (rural/urban)"
+  },
+  {
+    "id": "update_account_details",
+    "name": "Updating Bank Account Details (Mobile Number & Address)",
+    "description": "Procedure to update or modify your registered mobile number, residential address, or email address linked to your bank account for secure transaction OTPs and correspondence.",
+    "steps": [
+      "Determine required update: Mobile number changes usually require ATM authentication or branch visit; Address updates can often be submitted online with Aadhaar OTP.",
+      "For Mobile Number Update via ATM: Insert debit card, enter PIN, select 'Services / Registration' > 'Change Mobile Number', enter new mobile number, and authenticate via SMS OTP sent to both old and new numbers.",
+      "For Mobile Number Update via Branch: Visit home branch, fill 'Customer Request Form (CRF)', submit self-attested identity proof, and authenticate via biometrics or signature.",
+      "For Address Update via Net-Banking: Log in to portal, go to 'Profile / My Details' > 'Update Address', choose 'Aadhaar e-KYC', enter Aadhaar number, and confirm via UIDAI OTP.",
+      "For Address Update via Branch: Submit request form along with new address proof (Aadhaar, Passport, Utility Bill) and original for verification.",
+      "Receive official confirmation SMS and email once records are updated across banking systems."
+    ],
+    "required_documents": [
+      "Original PAN Card and Aadhaar Card for identity verification",
+      "Valid Proof of New Address: Updated Aadhaar Card, Passport, Voter ID, or latest Electricity/Water Bill (< 3 months)",
+      "Active Debit Card and PIN (for ATM channel requests)",
+      "Passbook or recent bank statement containing Account Number and CIF"
+    ],
+    "authority": {
+      "type": "Your Home Bank Branch / Net-Banking Customer Service",
+      "mode": "both",
+      "note": "for security reasons, mobile number change requires dual-factor authentication"
+    },
+    "estimated_time": "ATM / Net-Banking: Instant to 24 hours; Branch submission: 1 to 3 working days",
+    "fees": "Nil / Free of charge across most Indian banks"
+  },
+  {
+    "id": "account_transfer",
+    "name": "Bank Account Branch Transfer Guide",
+    "description": "Step-by-step process to transfer your active savings or current account from one branch/city to another branch of the same bank without changing your account number.",
+    "steps": [
+      "Obtain the 4-digit or 5-digit Branch Code and IFSC Code of the new target branch where you want to transfer your account.",
+      "Option 1 (Online via Net-Banking/Mobile App): Log in to net-banking portal, navigate to 'Services / Account Requests' > 'Transfer Savings Account'.",
+      "Select your Account Number, enter the new Branch Code, verify the target branch address on screen, and submit request via OTP.",
+      "Option 2 (In-Person via Branch): Visit either your current home branch or the new destination branch, fill the 'Account Transfer Application Form', and surrender unused cheque leaves if requested.",
+      "Clear any pending lockers, signature mismatches, or loan attachments linked specifically to the older branch.",
+      "Track transfer status online; the account number, debit card, and net-banking credentials remain unchanged.",
+      "Collect new cheque book and updated passbook reflecting the new branch IFSC code after transfer completion."
+    ],
+    "required_documents": [
+      "Bank Passbook or Account Statement showing active Account Number and CIF",
+      "Valid Identity Proof (Aadhaar Card or PAN Card)",
+      "Proof of New Address in the destination city (if address is also being updated)",
+      "Unused cheque leaves from old branch (may be requested for cancellation)"
+    ],
+    "authority": {
+      "type": "Your Current Home Branch OR Destination Bank Branch",
+      "mode": "both",
+      "note": "your account number and UPI ID remain unchanged after transfer"
+    },
+    "estimated_time": "Online Net-Banking: 1 to 3 working days; Physical Branch request: 3 to 7 working days",
+    "fees": "Nil / Free of charge across public and private sector banks"
+  }
+]

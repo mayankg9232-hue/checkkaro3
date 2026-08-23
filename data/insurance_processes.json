@@ -1,0 +1,147 @@
+﻿[
+  {
+    "id": "claim_filing",
+    "name": "General Insurance Claim Filing Guide",
+    "description": "Standard step-by-step procedure to intimate your insurance company, submit supporting claim documentation, undergo assessment, and receive claim settlement.",
+    "steps": [
+      "Immediate Claim Intimation: Contact your insurer via customer toll-free number, mobile app, or email within 24 to 48 hours of the incident / hospitalization and obtain a Claim Intimation / Reference Number.",
+      "Identify Claim Mode: Determine whether to proceed via Cashless Network facility (at network hospital / garage) or Reimbursement Mode (paying upfront and claiming later).",
+      "Fill and Sign the Official Claim Form: Download and complete Part A (Insured details) and Part B (Hospital / Assessor details) of the standard claim form.",
+      "Gather Required Proofs & Receipts: Compile original itemized bills, payment receipts, diagnosis/discharge summary, surveyor inspection report, or police FIR (if applicable).",
+      "Submit Claim Dossier: Submit physical documents to the nearest insurer branch / TPA desk or upload scanned copies on the insurer's self-service portal.",
+      "Surveyor / Medical Assessment: Cooperate with the insurance surveyor or medical TPA investigator for any clarification or document deficiency requests.",
+      "Claim Settlement & Payout: Review the Claim Settlement Summary and receive direct NEFT/RTGS credit to your bank account."
+    ],
+    "required_documents": [
+      "Original Policy Schedule copy and active Policy Number",
+      "Duly completed and signed Official Claim Form (Part A & Part B)",
+      "Photo ID Proof (Aadhaar Card, PAN Card, or Passport) of the policyholder and claimant",
+      "Cancelled cheque leaf or bank passbook copy reflecting Account Number and IFSC",
+      "Original itemized final bills, payment receipts, and cash memos",
+      "Incident-specific proofs (Discharge summary for health, Police FIR/Panchnama for theft/major road accident, Repair estimates for property/auto)"
+    ],
+    "authority": {
+      "type": "Your Insurer's Claims Department / TPA (Third-Party Administrator)",
+      "mode": "both",
+      "note": "intimate within 24 to 48 hours to avoid delayed claim processing"
+    },
+    "estimated_time": "Cashless: 2 to 6 hours for approval; Reimbursement: 7 to 15 working days after final document submission",
+    "fees": "Nil / No claim filing fee (deductibles, co-payment, or non-medical consumables deducted as per policy terms)"
+  },
+  {
+    "id": "policy_breakdown",
+    "name": "Understanding Your Insurance Policy Document & Key Terms",
+    "description": "Comprehensive explainer of policy schedules, clauses, exclusions, deductibles, waiting periods, and network rules to help you decode your insurance paperwork.",
+    "steps": [
+      "Verify Policy Schedule & Details: Check insured members' names, ages, relationship, date of inception, policy period, and nominee name for 100% accuracy.",
+      "Understand Sum Insured vs Premium: Note the maximum financial coverage limit (Sum Insured) against the annual amount paid (Premium) including GST.",
+      "Check Waiting Periods: Identify specific waiting periods (e.g. 30 days initial waiting period, 2 years for specific ailments like hernia/cataract, 24 to 48 months for Pre-Existing Diseases / PED).",
+      "Review Inclusions & Exclusions: Carefully examine Section 3 (Permanent Exclusions) to know what medical treatments, damages, or non-medical consumables are never covered.",
+      "Note Deductibles & Co-Pay Clauses: Identify if your policy has a mandatory co-payment (e.g. 10% or 20% senior citizen co-pay) or voluntary deductible you must pay out-of-pocket.",
+      "Locate Network List & TPA Contact: Save your TPA ID card, customer care helpline, and verify local empanelled network hospitals / cashless garages."
+    ],
+    "required_documents": [
+      "Original Policy Schedule & Policy Wordings Document",
+      "Health Card / Digital E-Card containing TPA Number and Policy Identifier",
+      "Premium Payment Receipt with 80D / 80C Tax Deduction Certificate",
+      "Insured members' KYC documents (Aadhaar, PAN Card, Date of Birth Proof)",
+      "Pre-existing medical history disclosure records and past prescriptions"
+    ],
+    "authority": {
+      "type": "Insurance Regulatory and Development Authority of India (IRDAI) / Your Insurer",
+      "mode": "both",
+      "note": "utilize the 15 to 30 days Free-Look Period to review terms or cancel policy if unsatisfied"
+    },
+    "estimated_time": "15 to 30 days statutory Free-Look review period from date of policy receipt",
+    "fees": "Nil / Standard statutory policy administration"
+  },
+  {
+    "id": "health_insurance_coverage",
+    "name": "Health Insurance Coverage & Claims (Cashless vs Reimbursement)",
+    "description": "Detailed guide on hospitalization benefits, pre/post-hospitalization expenses, daycare treatments, exclusions, and step-by-step cashless pre-authorization vs reimbursement.",
+    "steps": [
+      "For Planned Hospitalization (Cashless): Select a network hospital 48 to 72 hours prior; submit pre-authorization form with doctor's prescription at hospital TPA desk.",
+      "For Emergency Hospitalization (Cashless): Intimate insurer within 24 hours of admission; hospital TPA desk sends emergency pre-authorization request to insurer.",
+      "Insurer Pre-Authorization Response: Insurer/TPA issues Initial Sanction Letter; upon discharge, final hospital bill is sent for cashless settlement.",
+      "For Reimbursement Claims (Non-Network Hospital): Pay hospital bills directly, collect all original discharge summaries, test reports, pharmacy receipts, and indoor case records.",
+      "Pre & Post-Hospitalization Expenses: Collate all medical consultations, diagnostics, and medicines incurred 30 to 60 days before admission and 60 to 90 days after discharge.",
+      "Submit Claim Package: Submit claim form and all original vouchers within 15 to 30 days of discharge.",
+      "Settlement & Dispute Redressal: Receive payment via bank transfer; if deductions occur, review the detailed Claim Settlement Letter."
+    ],
+    "required_documents": [
+      "Duly completed Health Insurance Claim Form (Part A signed by claimant, Part B signed by attending doctor with hospital seal)",
+      "Hospital Discharge Summary detailing admission reason, treatment given, and condition at discharge",
+      "Original itemized hospital final bill with detailed breakup of room rent, nursing, ICU, and surgery charges",
+      "Original paid payment receipts and doctor consultation vouchers",
+      "All diagnostic and laboratory investigation reports (Blood tests, X-rays, MRI/CT scans, ECG) with medical prescriptions",
+      "Implant stickers and purchase invoices (for pacemakers, stents, joint replacement prosthetics)",
+      "Cancelled cheque of the primary policyholder for direct electronic bank refund"
+    ],
+    "authority": {
+      "type": "Hospital TPA Helpdesk / Insurer Health Claims Department",
+      "mode": "both",
+      "note": "non-medical expenses (gloves, sanitizer, registration charges) are standard deductions"
+    },
+    "estimated_time": "Cashless pre-auth: 2 to 4 hours; Final discharge sanction: 2 to 6 hours; Reimbursement payout: 7 to 15 days",
+    "fees": "Zero claim submission charges; mandatory co-pay or non-medical consumables deducted as per policy"
+  },
+  {
+    "id": "auto_insurance_coverage",
+    "name": "Motor / Vehicle Insurance Coverage & Accident Claims",
+    "description": "Procedure for comprehensive vs third-party vehicle damage claims, theft claims, accidental surveyor inspections, and network garage cashless repairs.",
+    "steps": [
+      "Safety First & Immediate Evidence: Note vehicle registration numbers, take clear photographs/videos of the accident scene, vehicle damage, and third-party vehicle (if involved).",
+      "Immediate Claim Intimation: Call insurer's toll-free number or file instant claim on insurer mobile app before towing or dismantling the vehicle.",
+      "Police FIR / Panchnama: Mandatory to file an FIR at the nearest police station if third-party injury, death, major property damage, or vehicle theft has occurred.",
+      "Move to Authorized Cashless Garage: Tow the vehicle to an insurer-approved network garage for cashless assessment.",
+      "Physical / Digital Surveyor Inspection: Bank/Insurer surveyor inspects damage, checks parts wear-and-tear, and approves estimate of repairs.",
+      "Vehicle Repair & Quality Check: Garage repairs vehicle according to surveyor approved estimate.",
+      "Pay Compulsory Deductible & Delivery: Pay mandatory deductible (₹1,000 for cars up to 1500cc; ₹2,000 for >1500cc; ₹100 for two-wheelers) plus salvage/depreciation, and take delivery."
+    ],
+    "required_documents": [
+      "Active Motor Insurance Policy Schedule or Certificate of Insurance",
+      "Vehicle Registration Certificate (RC Book / Smart Card)",
+      "Valid Driving License (DL) of the person driving at the time of the accident",
+      "Duly filled and signed Motor Claim Form",
+      "Original Police FIR / Daily Diary (DD) Entry (required for third-party injury, major collision, or theft)",
+      "Garage Repair Estimate and Original Tax Invoice with payment receipt",
+      "Photographs of damaged vehicle showing registration number plate clearly"
+    ],
+    "authority": {
+      "type": "Insurer Motor Claims Hub / Licensed Insurance Surveyor",
+      "mode": "both",
+      "note": "do not start vehicle repairs prior to official surveyor inspection"
+    },
+    "estimated_time": "Spot / App self-survey: 2 to 6 hours; Major repair approval: 2 to 5 days; Total turnaround: 5 to 10 days",
+    "fees": "Compulsory policy deductible (₹1,000 - ₹2,000 for four-wheelers, ₹100 for two-wheelers) + depreciation"
+  },
+  {
+    "id": "documents_keep_ready",
+    "name": "Essential Insurance Documents Readiness Checklist",
+    "description": "A standalone preparedness checklist of critical documents, digital records, and nominee proofs every family should keep organized for seamless claim settlement.",
+    "steps": [
+      "Create a Master Family Insurance Folder: Maintain both a physical waterproof binder and a secure digital folder (DigiLocker / e-Insurance Account / eIA).",
+      "Organize Policy Schedules: Keep copies of all active Life, Health, Motor, Home, and Term Insurance policies with latest renewal receipts.",
+      "Verify Nominee Information: Ensure nominee name, date of birth, relationship, and bank account details are up-to-date across all policies.",
+      "Maintain KYC Portfolio: Keep self-attested photocopies of Aadhaar Card, PAN Card, Passport, and voter ID of all insured members.",
+      "Record Past Medical History: Archive hospital discharge summaries, chronic illness prescriptions, allergy reports, and diagnostic records in chronological order.",
+      "Share Emergency Access with Nominee: Inform your family / nominee about policy locations, toll-free claims helpline numbers, and TPA card numbers."
+    ],
+    "required_documents": [
+      "Master Insurance Policies (Policy schedules, terms & conditions, and e-card printouts)",
+      "Latest Premium Payment Receipts & 80D / 80C Tax Exemption Certificates",
+      "Official Photo ID Proof (Aadhaar Card, PAN Card, Passport, Voter ID) of all covered members",
+      "Proof of Address (Utility Bill, Passport, Aadhaar, Bank Statement)",
+      "Nominee's ID Proof, Date of Birth Proof, and active Bank Account Details",
+      "Cancelled Cheque Leaf / Bank Passbook Copy with clear Account Number and IFSC Code",
+      "Complete Past Medical History Dossier (Hospitalization summaries, surgery notes, lab reports, doctor prescriptions)"
+    ],
+    "authority": {
+      "type": "Family Insurance Record / Insurer Customer Support",
+      "mode": "both",
+      "note": "review and update your insurance portfolio annually"
+    },
+    "estimated_time": "Immediate access / Annual preparedness review",
+    "fees": "Nil / 100% Free personal preparedness"
+  }
+]
