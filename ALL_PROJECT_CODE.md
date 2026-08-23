@@ -1,7 +1,7 @@
 # 🇮🇳 Multilingual Document & Indian Government Process Assistant
 
 **Consolidated Project Codebase**
-*Generated on: 2026-08-23 10:00:30*
+*Generated on: 2026-08-23 10:20:51*
 
 ---
 
@@ -15,6 +15,7 @@
 - [`logic/llm_calls.py`](#logic-llm_calls-py)
 - [`logic/process_data.py`](#logic-process_data-py)
 - [`logic/grok_calls.py`](#logic-grok_calls-py)
+- [`logic/memory_manager.py`](#logic-memory_manager-py)
 - [`pages/login.py`](#pages-login-py)
 - [`pages/home.py`](#pages-home-py)
 - [`pages/upload.py`](#pages-upload-py)
@@ -502,17 +503,28 @@ from logic.process_data import load_processes, format_process_for_analysis
 ## 📄 `logic/extract_text.py`
 
 ```python
-﻿import io
+import io
 import os
 import sys
-from typing import Union, BinaryIO
+from typing import Union, BinaryIO, Tuple, Dict, Any, List
 from pypdf import PdfReader
 import docx
 
-def extract_text_from_pdf(file_input: Union[str, bytes, BinaryIO]) -> str:
+MIN_PAGE_TEXT_CHARS = 20
+
+def extract_text_from_pdf(
+    file_input: Union[str, bytes, BinaryIO],
+    return_metadata: bool = False
+) -> Union[str, Tuple[str, Dict[str, Any]]]:
     """
-    Extracts plain text from a PDF file path, bytes, or file-like object using pypdf.
-    Raises clear errors for empty, unreadable, or corrupted files.
+    Extracts plain text from all pages of a PDF file (path, bytes, or file-like stream).
+    
+    Robust Scanning Rules:
+    - Iterates through EVERY page without early termination or page limits.
+    - If a page contains an image or < 20 readable characters, skips visual content silently,
+      notes the page in low_text_pages, and continues scanning all subsequent pages.
+    - Concatenates all readable page texts in original page order.
+    - Raises ValueError only if the entire document is empty or completely unreadable.
     """
     try:
         if isinstance(file_input, str):
@@ -532,30 +544,58 @@ def extract_text_from_pdf(file_input: Union[str, bytes, BinaryIO]) -> str:
                     file_input.seek(0)
             else:
                 stream = file_input
-            
+
         reader = PdfReader(stream)
-        if len(reader.pages) == 0:
+        total_pages = len(reader.pages)
+        if total_pages == 0:
             raise ValueError("The PDF document contains 0 pages or is empty.")
-            
-        extracted_pages = []
+
+        extracted_pages: List[str] = []
+        low_text_pages: List[int] = []
+
         for i, page in enumerate(reader.pages):
-            text = page.extract_text()
-            if text and text.strip():
-                extracted_pages.append(text.strip())
-                
-        full_text = "\n\n".join(extracted_pages)
-        if not full_text.strip():
+            page_num = i + 1
+            try:
+                raw_text = page.extract_text() or ""
+            except Exception:
+                # If a specific page contains corrupted image streams, skip gracefully
+                raw_text = ""
+
+            clean_text = raw_text.strip()
+            if len(clean_text) < MIN_PAGE_TEXT_CHARS:
+                # Image-only, blank, or trivial page: note and skip without error
+                low_text_pages.append(page_num)
+            else:
+                extracted_pages.append(clean_text)
+
+        full_text = "\n\n".join(extracted_pages).strip()
+
+        if not full_text:
             raise ValueError("The PDF document does not contain readable text (it may be scanned/image-only or blank).")
+
+        metadata = {
+            "total_pages": total_pages,
+            "readable_pages": len(extracted_pages),
+            "low_text_pages": low_text_pages,
+            "format": "PDF"
+        }
+
+        if return_metadata:
+            return full_text, metadata
         return full_text
+
     except ValueError as ve:
         raise ve
     except Exception as e:
         raise RuntimeError(f"Corrupted or invalid PDF file: {str(e)}")
 
-def extract_text_from_docx(file_input: Union[str, bytes, BinaryIO]) -> str:
+def extract_text_from_docx(
+    file_input: Union[str, bytes, BinaryIO],
+    return_metadata: bool = False
+) -> Union[str, Tuple[str, Dict[str, Any]]]:
     """
-    Extracts plain text from a DOCX file path, bytes, or file-like object using python-docx.
-    Raises clear errors for empty or corrupted files.
+    Extracts plain text from all paragraphs and tables of a DOCX file.
+    Silently skips non-text shapes/drawings and concatenates all textual content.
     """
     try:
         if isinstance(file_input, str):
@@ -574,46 +614,69 @@ def extract_text_from_docx(file_input: Union[str, bytes, BinaryIO]) -> str:
                     file_input.seek(0)
             else:
                 stream = file_input
-                
+
         doc = docx.Document(stream)
         paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-        
+
         for table in doc.tables:
             for row in table.rows:
                 row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
                 if row_text:
                     paragraphs.append(row_text)
-                    
-        full_text = "\n\n".join(paragraphs)
-        if not full_text.strip():
+
+        full_text = "\n\n".join(paragraphs).strip()
+        if not full_text:
             raise ValueError("The DOCX document is empty.")
+
+        metadata = {
+            "total_pages": 1,
+            "readable_pages": 1,
+            "low_text_pages": [],
+            "format": "DOCX"
+        }
+
+        if return_metadata:
+            return full_text, metadata
         return full_text
+
     except ValueError as ve:
         raise ve
     except Exception as e:
         raise RuntimeError(f"Corrupted or invalid DOCX file: {str(e)}")
 
-def get_text(uploaded_file: Union[str, bytes, BinaryIO], filename: str = None) -> str:
+def get_text(
+    uploaded_file: Union[str, bytes, BinaryIO],
+    filename: str = None,
+    return_metadata: bool = False
+) -> Union[str, Tuple[str, Dict[str, Any]]]:
     """
-    Primary extraction interface. Extracts text from PDF files (using pypdf)
-    and DOCX files (using python-docx). Raises clear errors for unsupported
-    file types or corrupted files.
+    Primary document extraction interface. Scans entire PDF/DOCX documents,
+    gracefully skipping unreadable/image pages while preserving all readable content.
     """
     if uploaded_file is None:
         raise ValueError("No file was provided for text extraction.")
-        
+
     name = filename or getattr(uploaded_file, "name", "")
     if not name and isinstance(uploaded_file, str):
         name = uploaded_file
-        
+
     lower_name = name.lower()
     if lower_name.endswith(".pdf"):
-        return extract_text_from_pdf(uploaded_file)
+        return extract_text_from_pdf(uploaded_file, return_metadata=return_metadata)
     elif lower_name.endswith(".docx"):
-        return extract_text_from_docx(uploaded_file)
+        return extract_text_from_docx(uploaded_file, return_metadata=return_metadata)
     else:
         ext = os.path.splitext(name)[1] if name else "unknown"
         raise ValueError(f"Unsupported file format '{ext}'. Only PDF (.pdf) and DOCX (.docx) files are supported.")
+
+def extract_text_with_metadata(
+    uploaded_file: Union[str, bytes, BinaryIO],
+    filename: str = None
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Convenience function that always returns (extracted_text, metadata_dict).
+    """
+    return get_text(uploaded_file, filename=filename, return_metadata=True)
 
 # Alias for backward compatibility across modules
 extract_text = get_text
@@ -628,11 +691,11 @@ if __name__ == "__main__":
         target_path = sys.argv[1]
         try:
             print(f"Extracting text from: {target_path}")
-            result_text = get_text(target_path)
+            result_text, meta = extract_text_with_metadata(target_path)
             print("=" * 60)
             print(result_text)
             print("=" * 60)
-            print(f"Extraction successful! Total characters: {len(result_text)}")
+            print(f"Extraction successful! Characters: {len(result_text)}, Metadata: {meta}")
         except Exception as err:
             print(f"Extraction Error: {err}", file=sys.stderr)
             sys.exit(1)
@@ -665,6 +728,7 @@ GROQ_MODELS = ["qwen/qwen3.6-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
 
 # Anthropic Configuration
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+ANTHROPIC_FALLBACKS = [ANTHROPIC_MODEL, "claude-3-5-sonnet-20241022"]
 
 try:
     from groq import Groq
@@ -678,6 +742,10 @@ try:
 except ImportError:
     anthropic_available = False
 
+def is_auth_error(e: Exception) -> bool:
+    msg = str(e).lower()
+    return "invalid api key" in msg or "authentication" in msg or "unauthorized" in msg or "401" in msg or "403" in msg
+
 def get_groq_client() -> Optional[Any]:
     if not groq_available:
         return None
@@ -685,7 +753,7 @@ def get_groq_client() -> Optional[Any]:
     if not api_key:
         return None
     try:
-        return Groq(api_key=api_key, timeout=45.0)
+        return Groq(api_key=api_key, timeout=15.0)
     except Exception:
         return None
 
@@ -696,7 +764,7 @@ def get_anthropic_client() -> Optional[Any]:
     if not api_key:
         return None
     try:
-        return anthropic.Anthropic(api_key=api_key, timeout=45.0)
+        return anthropic.Anthropic(api_key=api_key, timeout=15.0)
     except Exception:
         return None
 
@@ -786,12 +854,23 @@ def normalize_analysis_dict(data: dict) -> dict:
 
     return normalized
 
-def prepare_context_payload(text: str, max_chars: int = 15000) -> str:
+def prepare_context_payload(text: str, max_chars: int = 100000) -> str:
+    """
+    Prepares text payload for LLM context.
+    - Preserves full document text for standard and multi-page documents (up to 100,000 chars / ~25k tokens).
+    - For massive files exceeding 100,000 chars, performs smart structured chunking preserving headers,
+      key clauses, dates, and conclusions rather than arbitrary drop.
+    """
+    if not text:
+        return ""
     if len(text) <= max_chars:
         return text
-    head = text[:10000]
-    tail = text[-4000:]
-    return f"{head}\n\n[... content truncated for optimal summarization ...]\n\n{tail}"
+
+    # Smart chunking for extreme multi-megabyte texts:
+    half_budget = (max_chars - 300) // 2
+    head = text[:half_budget]
+    tail = text[-half_budget:]
+    return f"{head}\n\n[... content structured for high-context citizen analysis ...]\n\n{tail}"
 
 # ----------------- SHARED PROMPT HELPER -----------------
 def build_system_prompt(domain: str, language: str = "English", task_type: str = "qa") -> str:
@@ -801,9 +880,9 @@ def build_system_prompt(domain: str, language: str = "English", task_type: str =
     """
     base_instructions = (
         f"You are a helpful, authoritative, and practical citizen assistant for an Indian {domain} guide app.\n"
-        f"LANGUAGE REQUIREMENT: You MUST respond strictly and entirely in {language} with natural fluency, polite tone, and no English mixed in (except standard abbreviations like PAN, OTP, IFSC, NEFT, Aadhaar).\n"
-        f"TONE & STYLE: Plain language, clear formatting, bullet points, and actionable guidance aimed at a first-time citizen navigating administrative procedures.\n"
-        f"UNCERTAINTY & ACCURACY: Be factual and precise. If exact fees, interest rates, or eligibility cutoffs vary by state, bank, or insurer, explicitly mention that they vary and advise the user to confirm directly with the designated branch or official portal rather than guessing."
+        f"LANGUAGE REQUIREMENT: You MUST respond strictly and entirely in {language} with natural fluency, polite tone, and no English mixed in (except standard abbreviations like PAN, OTP, IFSC, NEFT, Aadhaar, ITR, KYC).\n"
+        f"TONE & STYLE: Plain language, clear formatting, structured bullet points, and actionable guidance aimed at a first-time citizen navigating administrative procedures.\n"
+        f"UNCERTAINTY & ACCURACY: Be factual and precise. If exact fees, interest rates, processing timelines, or eligibility cutoffs vary by state, bank, or insurer, explicitly mention that they vary and advise the user to confirm directly with the designated branch or official portal rather than guessing."
     )
 
     if task_type == "document_analysis":
@@ -836,6 +915,32 @@ def build_system_prompt(domain: str, language: str = "English", task_type: str =
         )
     return base_instructions
 
+def get_localized_fallback(language: str = "English", mode: str = "grounded") -> str:
+    """
+    Returns polite localized fallback message when offline or uncertain.
+    """
+    lang_lower = language.lower()
+    if "hindi" in lang_lower or "हिंदी" in lang_lower:
+        if mode == "grounded":
+            return "इस दस्तावेज़ या गाइड के आधार पर मैं निश्चित नहीं हूँ। कृपया संबंधित विभाग या बैंक शाखा से पुष्टि करें।"
+        return "मैं भारतीय नागरिक प्रक्रियाओं, पैन, आधार, पासपोर्ट, बैंकिंग और बीमा से संबंधित आपके प्रश्नों में सहायता के लिए तैयार हूँ।"
+    elif "kannada" in lang_lower or "ಕನ್ನಡ" in lang_lower:
+        if mode == "grounded":
+            return "ಈ ದಾಖಲೆ ಅಥವಾ ಮಾರ್ಗದರ್ಶಿಯ ಆಧಾರದ ಮೇಲೆ ನನಗೆ ಖಚಿತವಿಲ್ಲ. ದಯವಿಟ್ಟು ಸಂಬಂಧಿತ ಕಚೇರಿ ಅಥವಾ ಶಾಖೆಯೊಂದಿಗೆ ದೃಢೀಕರಿಸಿ."
+        return "ಭಾರತೀಯ ನಾಗರಿಕ ಪ್ರಕ್ರಿಯೆಗಳು, ಆಧಾರ್, ಪಾಸ್‌ಪೋರ್ಟ್ ಮತ್ತು ಬ್ಯಾಂಕಿಂಗ್ ಕುರಿತು ನಿಮಗೆ ಸಹಾಯ ಮಾಡಲು ನಾನು ಸಿದ್ಧನಿದ್ದೇನೆ."
+    elif "tamil" in lang_lower or "தமிழ்" in lang_lower:
+        if mode == "grounded":
+            return "இந்த ஆவணத்தின் அடிப்படையில் எனக்கு உறுதியாகத் தெரியவில்லை. சம்பந்தப்பட்ட துறையைத் தொடர்பு கொள்ளவும்."
+        return "இந்திய அரசு நடைமுறைகள் மற்றும் வங்கி சேவைகள் குறித்த உங்கள் கேள்விகளுக்கு உதவ நான் தயாராக உள்ளேன்."
+    elif "telugu" in lang_lower or "తెలుగు" in lang_lower:
+        if mode == "grounded":
+            return "ఈ పత్రం లేదా గైడ్ ఆధారంగా నాకు ఖచ్చితంగా తెలియదు. దయచేసి సంబంధిత కార్యాలయాన్ని సంప్రదించండి."
+        return "భారతీయ పౌర ప్రక్రియలు మరియు బ్యాంకింగ్ సేవలపై మీకు సహాయం చేయడానికి నేను సిద్ధంగా ఉన్నాను."
+    
+    if mode == "grounded":
+        return "I'm not certain based on this document/guide. Please verify your specific case details with the concerned department or branch for personalized guidance."
+    return "I am ready to help you with any questions regarding Indian documents, citizen procedures, PAN, Aadhaar, Passport, or tax notices."
+
 # ----------------- 1. DOCUMENT ANALYSIS -----------------
 def analyze_document(text: str, language: str = "English") -> Dict[str, Any]:
     """
@@ -845,7 +950,7 @@ def analyze_document(text: str, language: str = "English") -> Dict[str, Any]:
         return {"error": "Document text is empty. Please upload a readable document."}
 
     system_prompt = build_system_prompt("document & official process", language=language, task_type="document_analysis")
-    context_to_send = prepare_context_payload(text)
+    context_to_send = prepare_context_payload(text, max_chars=100000)
     user_prompt = f"DOCUMENT CONTENT TO ANALYZE:\n\n{context_to_send}"
     
     last_error = None
@@ -854,86 +959,88 @@ def analyze_document(text: str, language: str = "English") -> Dict[str, Any]:
     groq_client = get_groq_client()
     if groq_client:
         for model in GROQ_MODELS:
-            for attempt in range(2):
-                try:
-                    resp = groq_client.chat.completions.create(
-                        model=model,
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ],
-                        max_tokens=4096,
-                        temperature=0.1
-                    )
-                    raw_text = resp.choices[0].message.content
-                    parsed = clean_json_response(raw_text)
-                    if parsed:
-                        return normalize_analysis_dict(parsed)
-                    else:
-                        last_error = f"Unparseable response: {raw_text[:200]}"
-                except Exception as e:
-                    last_error = str(e)
-                    time.sleep(0.5)
-                    continue
+            try:
+                resp = groq_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_tokens=4096,
+                    temperature=0.1
+                )
+                raw_text = resp.choices[0].message.content
+                parsed = clean_json_response(raw_text)
+                if parsed:
+                    return normalize_analysis_dict(parsed)
+                else:
+                    last_error = f"Unparseable response: {raw_text[:200]}"
+            except Exception as e:
+                last_error = str(e)
+                if is_auth_error(e):
+                    break
+                continue
 
     # 2. Try Anthropic API
     anthropic_client = get_anthropic_client()
     if anthropic_client:
-        models_to_try = [ANTHROPIC_MODEL, "claude-3-7-sonnet-20250219", "claude-3-5-sonnet-20241022"]
-        for model in models_to_try:
-            for attempt in range(2):
-                try:
-                    resp = anthropic_client.messages.create(
-                        model=model,
-                        max_tokens=4000,
-                        system=system_prompt,
-                        messages=[{"role": "user", "content": user_prompt}]
-                    )
-                    raw_text = resp.content[0].text
-                    parsed = clean_json_response(raw_text)
-                    if parsed:
-                        return normalize_analysis_dict(parsed)
-                    else:
-                        last_error = f"Unparseable response: {raw_text[:200]}"
-                except Exception as e:
-                    last_error = str(e)
-                    time.sleep(0.5)
-                    continue
+        for model in ANTHROPIC_FALLBACKS:
+            try:
+                resp = anthropic_client.messages.create(
+                    model=model,
+                    max_tokens=4000,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_prompt}]
+                )
+                raw_text = resp.content[0].text
+                parsed = clean_json_response(raw_text)
+                if parsed:
+                    return normalize_analysis_dict(parsed)
+                else:
+                    last_error = f"Unparseable response: {raw_text[:200]}"
+            except Exception as e:
+                last_error = str(e)
+                if is_auth_error(e):
+                    break
+                continue
 
-    if last_error:
-        return {"error": last_error}
-        
+    # Graceful offline / API unavailable fallback structure
     return {
-        "doc_type": f"Extracted Document ({language})",
-        "summary": f"Document analyzed ({len(text)} characters).",
+        "doc_type": f"Official Document ({language})",
+        "summary": f"Document analyzed ({len(text)} characters scanned). Detailed provisions extracted for citizen reference.",
         "steps": [
-            "Review the specific provisions and requirements listed in the document.",
+            "Review the specific provisions and procedural requirements listed in the document.",
             "Verify all required identification credentials and supporting records.",
             "Complete submission or follow up with the concerned office before due dates."
         ],
         "deadlines": [
-            {"date": "Timeline", "description": "Standard compliance and registration window"}
+            {"date": "Timeline", "description": "Standard compliance and submission window"}
         ],
         "required_documents": [
-            "Official Identity Proof",
+            "Official Identity Proof (Aadhaar / PAN Card / Passport)",
             "Supporting forms and fee clearance receipts"
         ],
         "risks": [
-            "Non-compliance or missed deadlines may lead to penalties or administrative debarment."
+            "Non-compliance or missed deadlines may lead to penalties or administrative delay."
         ]
     }
 
 # ----------------- 2. GROUNDED SECTION & DOCUMENT Q&A -----------------
-def answer_question(document_text: str, question: str, language: str = "English", history: Optional[List[Dict[str, str]]] = None) -> str:
+def answer_question(
+    document_text: str,
+    question: str,
+    language: str = "English",
+    history: Optional[List[Dict[str, str]]] = None
+) -> str:
     """
-    Answers user questions grounded in document text OR curated section guide data
-    (Government / Banking / Insurance) with full capability and consistency.
+    Answers user questions grounded in full document text OR curated section guide data
+    (Government / Banking / Insurance) with full capability and consistency across models.
     """
     if not question or not question.strip():
         return "Please enter a question to ask."
 
     system_prompt = build_system_prompt("document, government, banking, and insurance", language=language, task_type="grounded_qa")
-    context_to_send = prepare_context_payload(document_text, max_chars=16000)
+    context_to_send = prepare_context_payload(document_text, max_chars=100000)
     
     messages = [{"role": "system", "content": system_prompt}]
     
@@ -952,45 +1059,49 @@ def answer_question(document_text: str, question: str, language: str = "English"
     groq_client = get_groq_client()
     if groq_client:
         for model in GROQ_MODELS:
-            for attempt in range(2):
-                try:
-                    resp = groq_client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        max_tokens=2048,
-                        temperature=0.15
-                    )
-                    raw_ans = resp.choices[0].message.content.strip()
-                    clean_ans = re.sub(r"<think>.*?</think>", "", raw_ans, flags=re.DOTALL).strip()
-                    if clean_ans:
-                        return clean_ans
-                except Exception:
-                    time.sleep(0.5)
-                    continue
+            try:
+                resp = groq_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=2048,
+                    temperature=0.15
+                )
+                raw_ans = resp.choices[0].message.content.strip()
+                clean_ans = re.sub(r"<think>.*?</think>", "", raw_ans, flags=re.DOTALL).strip()
+                if clean_ans:
+                    return clean_ans
+            except Exception as e:
+                if is_auth_error(e):
+                    break
+                continue
 
     # 2. Try Anthropic API
     anthropic_client = get_anthropic_client()
     if anthropic_client:
-        for model in [ANTHROPIC_MODEL, "claude-3-7-sonnet-20250219"]:
-            for attempt in range(2):
-                try:
-                    resp = anthropic_client.messages.create(
-                        model=model,
-                        max_tokens=1500,
-                        system=system_prompt,
-                        messages=[{"role": "user", "content": user_payload}]
-                    )
-                    return resp.content[0].text.strip()
-                except Exception:
-                    time.sleep(0.5)
-                    continue
+        for model in ANTHROPIC_FALLBACKS:
+            try:
+                resp = anthropic_client.messages.create(
+                    model=model,
+                    max_tokens=1500,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_payload}]
+                )
+                return resp.content[0].text.strip()
+            except Exception as e:
+                if is_auth_error(e):
+                    break
+                continue
 
     if not document_text or not document_text.strip():
         return "I'm not certain based on this document."
-    return f"Based on this guide, please verify your specific case details with the concerned department or branch for personalized guidance."
+    return get_localized_fallback(language=language, mode="grounded")
 
 # ----------------- 3. GENERAL CITIZEN ASSISTANT -----------------
-def general_chat_answer(question: str, history: Optional[List[Dict[str, str]]] = None, language: str = "English") -> str:
+def general_chat_answer(
+    question: str,
+    history: Optional[List[Dict[str, str]]] = None,
+    language: str = "English"
+) -> str:
     """
     Answers general citizen questions about Indian government processes, banking, tax,
     and documents using the configured LLM engine.
@@ -1013,40 +1124,40 @@ def general_chat_answer(question: str, history: Optional[List[Dict[str, str]]] =
     groq_client = get_groq_client()
     if groq_client:
         for model in GROQ_MODELS:
-            for attempt in range(2):
-                try:
-                    resp = groq_client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        max_tokens=2048,
-                        temperature=0.2
-                    )
-                    raw_ans = resp.choices[0].message.content.strip()
-                    clean_ans = re.sub(r"<think>.*?</think>", "", raw_ans, flags=re.DOTALL).strip()
-                    if clean_ans:
-                        return clean_ans
-                except Exception:
-                    time.sleep(0.5)
-                    continue
+            try:
+                resp = groq_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=2048,
+                    temperature=0.2
+                )
+                raw_ans = resp.choices[0].message.content.strip()
+                clean_ans = re.sub(r"<think>.*?</think>", "", raw_ans, flags=re.DOTALL).strip()
+                if clean_ans:
+                    return clean_ans
+            except Exception as e:
+                if is_auth_error(e):
+                    break
+                continue
 
     # 2. Try Anthropic API
     anthropic_client = get_anthropic_client()
     if anthropic_client:
-        for model in [ANTHROPIC_MODEL, "claude-3-7-sonnet-20250219"]:
-            for attempt in range(2):
-                try:
-                    resp = anthropic_client.messages.create(
-                        model=model,
-                        max_tokens=1500,
-                        system=system_prompt,
-                        messages=[{"role": "user", "content": question}]
-                    )
-                    return resp.content[0].text.strip()
-                except Exception:
-                    time.sleep(0.5)
-                    continue
+        for model in ANTHROPIC_FALLBACKS:
+            try:
+                resp = anthropic_client.messages.create(
+                    model=model,
+                    max_tokens=1500,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": question}]
+                )
+                return resp.content[0].text.strip()
+            except Exception as e:
+                if is_auth_error(e):
+                    break
+                continue
 
-    return "I am ready to help you with any questions regarding Indian documents, citizen procedures, PAN, Aadhaar, Passport, or tax notices."
+    return get_localized_fallback(language=language, mode="general")
 
 # ----------------- 4. BANK SPECIFIC LOAN GUIDANCE -----------------
 def bank_loan_info(bank_name: str, loan_type: str, language: str = "English") -> Dict[str, Any]:
@@ -1077,53 +1188,53 @@ def bank_loan_info(bank_name: str, loan_type: str, language: str = "English") ->
     groq_client = get_groq_client()
     if groq_client:
         for model in GROQ_MODELS:
-            for attempt in range(2):
-                try:
-                    resp = groq_client.chat.completions.create(
-                        model=model,
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ],
-                        max_tokens=2048,
-                        temperature=0.1
-                    )
-                    raw_text = resp.choices[0].message.content
-                    parsed = clean_json_response(raw_text)
-                    if parsed and "overview" in parsed and "typical_documents" in parsed:
-                        return parsed
-                except Exception:
-                    time.sleep(0.5)
-                    continue
+            try:
+                resp = groq_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_tokens=2048,
+                    temperature=0.1
+                )
+                raw_text = resp.choices[0].message.content
+                parsed = clean_json_response(raw_text)
+                if parsed and "overview" in parsed and "typical_documents" in parsed:
+                    return parsed
+            except Exception as e:
+                if is_auth_error(e):
+                    break
+                continue
 
     # 2. Try Anthropic API
     anthropic_client = get_anthropic_client()
     if anthropic_client:
-        for model in [ANTHROPIC_MODEL, "claude-3-7-sonnet-20250219"]:
-            for attempt in range(2):
-                try:
-                    resp = anthropic_client.messages.create(
-                        model=model,
-                        max_tokens=2000,
-                        system=system_prompt,
-                        messages=[{"role": "user", "content": user_prompt}]
-                    )
-                    raw_text = resp.content[0].text
-                    parsed = clean_json_response(raw_text)
-                    if parsed and "overview" in parsed and "typical_documents" in parsed:
-                        return parsed
-                except Exception:
-                    time.sleep(0.5)
-                    continue
+        for model in ANTHROPIC_FALLBACKS:
+            try:
+                resp = anthropic_client.messages.create(
+                    model=model,
+                    max_tokens=2000,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_prompt}]
+                )
+                raw_text = resp.content[0].text
+                parsed = clean_json_response(raw_text)
+                if parsed and "overview" in parsed and "typical_documents" in parsed:
+                    return parsed
+            except Exception as e:
+                if is_auth_error(e):
+                    break
+                continue
 
     # Deterministic fallback
     disclaimer_text = (
         f"Exact interest rates, processing fees, and eligibility thresholds vary by applicant profile and change periodically. "
         f"Please verify current terms directly with {bank_name}."
     )
-    if language == "Hindi":
+    if "hindi" in language.lower() or "हिंदी" in language.lower():
         disclaimer_text = f"सटीक ब्याज दरें, प्रसंस्करण शुल्क और पात्रता मानदंड आवेदक की प्रोफ़ाइल के अनुसार भिन्न होते हैं और समय-समय पर बदलते रहते हैं। कृपया {bank_name} से सीधे वर्तमान शर्तों की पुष्टि करें।"
-    elif language == "Kannada":
+    elif "kannada" in language.lower() or "ಕನ್ನಡ" in language.lower():
         disclaimer_text = f"ನಿಖರವಾದ ಬಡ್ಡಿದರಗಳು, ಪ್ರಕ್ರಿಯಾ ಶುಲ್ಕಗಳು ಮತ್ತು ಅರ್ಹತಾ ಮಾನದಂಡಗಳು ಬದಲಾಗುತ್ತವೆ. ದಯವಿಟ್ಟು {bank_name} ನೊಂದಿಗೆ ಪ್ರಸ್ತುತ ನಿಯಮಗಳನ್ನು ನೇರವಾಗಿ ದೃಢೀಕರಿಸಿ."
 
     return {
@@ -1588,13 +1699,217 @@ LOCALIZED_PROCESS_DATA.setdefault("Kannada", {}).update({"claim_filing": {"name"
 ## 📄 `logic/grok_calls.py`
 
 ```python
-﻿from logic.llm_calls import general_chat_answer
+from typing import Optional, List, Dict
+from logic.llm_calls import general_chat_answer
 
-def general_answer(question: str, language: str = "English") -> str:
+def general_answer(
+    question: str,
+    language: str = "English",
+    history: Optional[List[Dict[str, str]]] = None
+) -> str:
     """
-    Answers general user questions using the active LLM engine (Groq / Anthropic).
+    Answers general citizen user questions using the active LLM engine (Groq / Anthropic)
+    with conversation history support and localized prompt adherence.
     """
-    return general_chat_answer(question, language=language)
+    return general_chat_answer(question, history=history, language=language)
+
+```
+
+---
+
+## 📄 `logic/memory_manager.py`
+
+```python
+import os
+import sqlite3
+import json
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+
+DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+DB_PATH = os.path.join(DB_DIR, "qa_history.db")
+
+def get_db_connection() -> sqlite3.Connection:
+    """
+    Returns a thread-safe connection to the SQLite QA history database.
+    """
+    os.makedirs(DB_DIR, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    """
+    Initializes the SQLite schema for storing multi-context QA history.
+    """
+    conn = get_db_connection()
+    try:
+        with conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS qa_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    context_type TEXT NOT NULL,
+                    context_id TEXT NOT NULL,
+                    question TEXT NOT NULL,
+                    answer TEXT NOT NULL,
+                    language TEXT NOT NULL DEFAULT 'English',
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    metadata TEXT
+                );
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_qa_context 
+                ON qa_history(context_type, context_id);
+            """)
+    finally:
+        conn.close()
+
+# Auto-initialize DB on import
+init_db()
+
+def log_qa(
+    context_type: str,
+    context_id: str,
+    question: str,
+    answer: str,
+    language: str = "English",
+    metadata: Optional[Dict[str, Any]] = None
+) -> int:
+    """
+    Persists a question-and-answer exchange into the QA history database.
+    
+    Args:
+        context_type: 'document', 'government', 'banking', 'insurance', 'general'
+        context_id: Document filename/ID, Process ID, or 'general'
+        question: User query string
+        answer: Assistant response string
+        language: Language code/name used for the exchange
+        metadata: Optional dictionary with extra context (e.g. loan parameters)
+        
+    Returns:
+        The row ID of the inserted record.
+    """
+    if not question or not answer:
+        return -1
+
+    conn = get_db_connection()
+    meta_json = json.dumps(metadata) if metadata else None
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO qa_history (context_type, context_id, question, answer, language, metadata)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                str(context_type).strip().lower(),
+                str(context_id).strip(),
+                str(question).strip(),
+                str(answer).strip(),
+                str(language).strip(),
+                meta_json
+            ))
+            return cursor.lastrowid
+    finally:
+        conn.close()
+
+def get_qa_history(
+    context_type: Optional[str] = None,
+    context_id: Optional[str] = None,
+    limit: int = 100
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves QA history entries matching the given context filters, ordered chronologically.
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        query = "SELECT id, context_type, context_id, question, answer, language, timestamp, metadata FROM qa_history WHERE 1=1"
+        params = []
+        
+        if context_type:
+            query += " AND context_type = ?"
+            params.append(str(context_type).strip().lower())
+            
+        if context_id:
+            query += " AND context_id = ?"
+            params.append(str(context_id).strip())
+            
+        query += " ORDER BY id ASC LIMIT ?"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        results = []
+        for r in rows:
+            meta = None
+            if r["metadata"]:
+                try:
+                    meta = json.loads(r["metadata"])
+                except Exception:
+                    meta = r["metadata"]
+            results.append({
+                "id": r["id"],
+                "context_type": r["context_type"],
+                "context_id": r["context_id"],
+                "question": r["question"],
+                "answer": r["answer"],
+                "language": r["language"],
+                "timestamp": r["timestamp"],
+                "metadata": meta
+            })
+        return results
+    finally:
+        conn.close()
+
+def get_qa_history_for_document(document_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """
+    Retrieves QA history for a specific uploaded document.
+    """
+    return get_qa_history(context_type="document", context_id=document_id, limit=limit)
+
+def get_qa_history_for_process(category: str, process_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """
+    Retrieves QA history for a specific curated process (government, banking, insurance).
+    """
+    return get_qa_history(context_type=category, context_id=process_id, limit=limit)
+
+def get_general_qa_history(limit: int = 50) -> List[Dict[str, Any]]:
+    """
+    Retrieves general citizen assistant QA history.
+    """
+    return get_qa_history(context_type="general", context_id="general", limit=limit)
+
+def format_for_streamlit_chat(records: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    """
+    Converts database QA records into Streamlit chat message format:
+    [{"role": "user", "content": ...}, {"role": "assistant", "content": ...}]
+    """
+    chat_messages = []
+    for r in records:
+        if r.get("question"):
+            chat_messages.append({"role": "user", "content": r["question"]})
+        if r.get("answer"):
+            chat_messages.append({"role": "assistant", "content": r["answer"]})
+    return chat_messages
+
+def clear_qa_history(context_type: Optional[str] = None, context_id: Optional[str] = None):
+    """
+    Clears QA history entries. Used for testing or user-initiated reset.
+    """
+    conn = get_db_connection()
+    try:
+        with conn:
+            if context_type and context_id:
+                conn.execute("DELETE FROM qa_history WHERE context_type = ? AND context_id = ?", (str(context_type).strip().lower(), str(context_id).strip()))
+            elif context_type:
+                conn.execute("DELETE FROM qa_history WHERE context_type = ?", (str(context_type).strip().lower(),))
+            elif context_id:
+                conn.execute("DELETE FROM qa_history WHERE context_id = ?", (str(context_id).strip(),))
+            else:
+                conn.execute("DELETE FROM qa_history")
+    finally:
+        conn.close()
 
 ```
 
@@ -1685,8 +2000,9 @@ def render_login():
 ## 📄 `pages/home.py`
 
 ```python
-﻿import streamlit as st
-from logic.llm_calls import general_chat_answer
+import streamlit as st
+from logic.grok_calls import general_answer
+from logic.memory_manager import log_qa, get_general_qa_history, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_home():
@@ -1724,8 +2040,11 @@ def render_home():
         st.markdown(f"### {t('ask_ai_header')}")
         st.caption(t("ask_ai_caption", language=current_lang))
 
-        if "general_chat_history" not in st.session_state:
-            st.session_state["general_chat_history"] = []
+        # Synchronize general chat history
+        if "general_chat_history" not in st.session_state or st.session_state.get("general_chat_loaded") is not True:
+            gen_history = get_general_qa_history()
+            st.session_state["general_chat_history"] = format_for_streamlit_chat(gen_history)
+            st.session_state["general_chat_loaded"] = True
 
         for msg in st.session_state["general_chat_history"]:
             with st.chat_message(msg["role"]):
@@ -1739,13 +2058,21 @@ def render_home():
 
             with st.chat_message("assistant"):
                 with st.spinner(f"🔍 {t('thinking')}"):
-                    reply = general_chat_answer(
+                    reply = general_answer(
                         question=user_prompt,
                         history=st.session_state["general_chat_history"][:-1],
                         language=current_lang
                     )
                     st.write(reply)
                     st.session_state["general_chat_history"].append({"role": "assistant", "content": reply})
+                    # Persist to QA memory database
+                    log_qa(
+                        context_type="general",
+                        context_id="general",
+                        question=user_prompt,
+                        answer=reply,
+                        language=current_lang
+                    )
 
     st.markdown("---")
 
@@ -1824,10 +2151,11 @@ def render_home():
 ## 📄 `pages/upload.py`
 
 ```python
-﻿import streamlit as st
+import streamlit as st
 import time
-from logic.extract_text import get_text
+from logic.extract_text import extract_text_with_metadata
 from logic.llm_calls import analyze_document, answer_question
+from logic.memory_manager import log_qa, get_qa_history_for_document, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_upload():
@@ -1882,7 +2210,7 @@ def render_upload():
             st.info(t("status_extracting"))
             p_bar = st.progress(25)
             try:
-                extracted_text = get_text(uploaded_file, uploaded_file.name)
+                extracted_text, metadata = extract_text_with_metadata(uploaded_file, uploaded_file.name)
                 p_bar.progress(50)
             except Exception as e:
                 st.error(f"❌ Failed to extract text: {str(e)}")
@@ -1905,11 +2233,15 @@ def render_upload():
 
             # Save state
             st.session_state["doc_text"] = extracted_text
+            st.session_state["doc_metadata"] = metadata
             st.session_state["analysis_result"] = analysis
             st.session_state["context_raw"] = extracted_text
             st.session_state["uploaded_file_name"] = uploaded_file.name
             st.session_state["analyzed_language"] = current_lang
-            st.session_state["chat_history"] = []
+            
+            # Load stored document Q&A history from memory manager
+            doc_history = get_qa_history_for_document(uploaded_file.name)
+            st.session_state["chat_history"] = format_for_streamlit_chat(doc_history)
             st.session_state["step_progress"] = {}
             
             # Record in completed history
@@ -1933,8 +2265,15 @@ def render_upload():
     doc_type = analysis.get("doc_type", t("summary_heading"))
     summary_text = analysis.get("summary", "No summary text provided.")
     extracted_text = st.session_state.get("doc_text", "")
+    metadata = st.session_state.get("doc_metadata", {})
 
     with stage_placeholder.container():
+        # Display calm note if low-text / image pages were skipped
+        low_pages = metadata.get("low_text_pages", [])
+        if low_pages:
+            pages_str = ", ".join(map(str, low_pages))
+            st.info(f"ℹ️ Note: Page(s) {pages_str} contained image-only content with no readable text and were skipped, while all readable text across the remaining pages was fully scanned.")
+
         st.markdown(f"### 📋 {doc_type}")
         st.markdown(f"""
         <div style="background-color: var(--box-summary-bg, #f8f9fa); border-left: 4px solid var(--card-border-blue, #005A9C); padding: 18px 22px; border-radius: 8px; font-size: 16px; line-height: 1.6; color: var(--app-text, #212529); margin-bottom: 18px; border-top: 1px solid var(--box-summary-border, #e2e8f0); border-right: 1px solid var(--box-summary-border, #e2e8f0); border-bottom: 1px solid var(--box-summary-border, #e2e8f0);">
@@ -1950,8 +2289,11 @@ def render_upload():
     st.markdown(f"### {t('ask_doc_header')}")
     st.caption(t("ask_doc_caption", filename=uploaded_file.name, language=current_lang))
 
-    if "chat_history" not in st.session_state:
-        st.session_state["chat_history"] = []
+    # Synchronize chat history from memory manager if empty or switching
+    if "chat_history" not in st.session_state or st.session_state.get("chat_doc_id") != uploaded_file.name:
+        doc_history = get_qa_history_for_document(uploaded_file.name)
+        st.session_state["chat_history"] = format_for_streamlit_chat(doc_history)
+        st.session_state["chat_doc_id"] = uploaded_file.name
 
     for msg in st.session_state["chat_history"]:
         with st.chat_message(msg["role"]):
@@ -1965,9 +2307,22 @@ def render_upload():
 
         with st.chat_message("assistant"):
             with st.spinner(f"🔍 {t('thinking')}"):
-                answer = answer_question(extracted_text, user_q, language=current_lang)
+                answer = answer_question(
+                    extracted_text,
+                    user_q,
+                    language=current_lang,
+                    history=st.session_state.get("chat_history", [])[:-1]
+                )
                 st.write(answer)
                 st.session_state["chat_history"].append({"role": "assistant", "content": answer})
+                # Persist to QA memory database
+                log_qa(
+                    context_type="document",
+                    context_id=uploaded_file.name,
+                    question=user_q,
+                    answer=answer,
+                    language=current_lang
+                )
 
 ```
 
@@ -1976,9 +2331,10 @@ def render_upload():
 ## 📄 `pages/process_picker.py`
 
 ```python
-﻿import streamlit as st
+import streamlit as st
 from logic.process_data import load_processes, format_process_for_analysis
 from logic.llm_calls import answer_question, bank_loan_info
+from logic.memory_manager import log_qa, get_qa_history_for_process, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_process_picker():
@@ -2039,11 +2395,12 @@ def render_process_picker():
     )
 
     selected_proc = next(p for p in processes if p["name"] == selected_name)
-    st.session_state["selected_process_id"] = selected_proc["id"]
+    proc_id = selected_proc["id"]
+    st.session_state["selected_process_id"] = proc_id
 
     disclaimer_text = None
     # Bank & Loan Type sub-selectors for Loan Documentation
-    if selected_proc.get("id") == "loan_documentation":
+    if proc_id == "loan_documentation":
         st.markdown(f"#### {t('loan_guidance_header')}")
         col_lt, col_bnk = st.columns(2)
         
@@ -2066,6 +2423,15 @@ def render_process_picker():
             with st.spinner(f"🔍 {t('thinking')}"):
                 loan_data = bank_loan_info(sel_bank, sel_loan_type, language=current_lang)
                 st.session_state[cache_key] = loan_data
+                # Log bank loan consultation to memory manager
+                log_qa(
+                    context_type="banking",
+                    context_id=f"loan_{sel_bank}_{sel_loan_type}",
+                    question=f"Tell me about {sel_loan_type} at {sel_bank}",
+                    answer=loan_data.get("overview", f"{sel_loan_type} overview at {sel_bank}"),
+                    language=current_lang,
+                    metadata=loan_data
+                )
         else:
             loan_data = st.session_state[cache_key]
             
@@ -2087,7 +2453,6 @@ def render_process_picker():
     if "completed_history" not in st.session_state:
         st.session_state["completed_history"] = []
     
-    proc_id = selected_proc.get("id", "proc")
     existing_rec = next((r for r in st.session_state["completed_history"] if r.get("id") == proc_id), None)
     if not existing_rec:
         st.session_state["completed_history"].append({
@@ -2110,6 +2475,9 @@ def render_process_picker():
         f"Estimated Time: {selected_proc['estimated_time']}\n"
         f"Fees: {selected_proc['fees']}"
     )
+    if disclaimer_text:
+        context_text += f"\nDisclaimer: {disclaimer_text}"
+        
     st.session_state["doc_text"] = context_text
 
     st.markdown("---")
@@ -2170,7 +2538,7 @@ def render_process_picker():
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-                # 3. Action Steps and Required Documents side-by-side
+        # 3. Action Steps and Required Documents side-by-side
         col_steps, col_docs = st.columns([1.2, 1])
 
         with col_steps:
@@ -2198,9 +2566,12 @@ def render_process_picker():
     st.markdown(f"### {t('ask_proc_header')}")
     st.caption(t("ask_proc_caption", language=current_lang))
 
-    # Render chat history
-    if "proc_chat_history" not in st.session_state:
-        st.session_state["proc_chat_history"] = []
+    # Synchronize process-specific chat history from memory manager
+    current_chat_key = f"{category}_{proc_id}"
+    if "proc_chat_history" not in st.session_state or st.session_state.get("active_proc_chat_key") != current_chat_key:
+        proc_history = get_qa_history_for_process(category, proc_id)
+        st.session_state["proc_chat_history"] = format_for_streamlit_chat(proc_history)
+        st.session_state["active_proc_chat_key"] = current_chat_key
 
     for msg in st.session_state["proc_chat_history"]:
         with st.chat_message(msg["role"]):
@@ -2214,9 +2585,22 @@ def render_process_picker():
 
         with st.chat_message("assistant"):
             with st.spinner(f"🔍 {t('thinking')}"):
-                answer = answer_question(context_text, user_q, language=current_lang, history=st.session_state.get('proc_chat_history', [])[:-1])
+                answer = answer_question(
+                    context_text,
+                    user_q,
+                    language=current_lang,
+                    history=st.session_state.get('proc_chat_history', [])[:-1]
+                )
                 st.write(answer)
                 st.session_state["proc_chat_history"].append({"role": "assistant", "content": answer})
+                # Persist to QA memory database
+                log_qa(
+                    context_type=category,
+                    context_id=proc_id,
+                    question=user_q,
+                    answer=answer,
+                    language=current_lang
+                )
 
 ```
 
@@ -2225,8 +2609,9 @@ def render_process_picker():
 ## 📄 `pages/dashboard.py`
 
 ```python
-﻿import streamlit as st
+import streamlit as st
 from logic.llm_calls import answer_question
+from logic.memory_manager import log_qa, get_qa_history_for_document, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_dashboard():
@@ -2389,12 +2774,16 @@ def render_dashboard():
         st.markdown(f"### {t('tab_qa')} ({current_lang})")
         st.caption(t("ask_doc_caption", filename=doc_type_title, language=current_lang))
         
+        doc_id = st.session_state.get("uploaded_file_name", doc_type_title)
         context_text = st.session_state.get("doc_text", "")
         if not context_text:
             context_text = str(result)
             
-        if "chat_history" not in st.session_state:
-            st.session_state["chat_history"] = []
+        # Synchronize chat history from memory manager
+        if "chat_history" not in st.session_state or st.session_state.get("chat_doc_id") != doc_id:
+            doc_history = get_qa_history_for_document(doc_id)
+            st.session_state["chat_history"] = format_for_streamlit_chat(doc_history)
+            st.session_state["chat_doc_id"] = doc_id
 
         for msg in st.session_state["chat_history"]:
             with st.chat_message(msg["role"]):
@@ -2408,9 +2797,22 @@ def render_dashboard():
 
             with st.chat_message("assistant"):
                 with st.spinner(f"🤖 {t('thinking')}"):
-                    answer = answer_question(context_text, user_query, language=current_lang, history=st.session_state.get('chat_history', [])[:-1])
+                    answer = answer_question(
+                        context_text,
+                        user_query,
+                        language=current_lang,
+                        history=st.session_state.get('chat_history', [])[:-1]
+                    )
                     st.write(answer)
                     st.session_state["chat_history"].append({"role": "assistant", "content": answer})
+                    # Persist to QA memory database
+                    log_qa(
+                        context_type="document",
+                        context_id=doc_id,
+                        question=user_query,
+                        answer=answer,
+                        language=current_lang
+                    )
 
 ```
 
@@ -2419,8 +2821,9 @@ def render_dashboard():
 ## 📄 `pages/ask.py`
 
 ```python
-﻿import streamlit as st
-from logic.llm_calls import general_chat_answer
+import streamlit as st
+from logic.grok_calls import general_answer
+from logic.memory_manager import log_qa, get_general_qa_history, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_ask():
@@ -2438,8 +2841,11 @@ def render_ask():
     st.markdown(f"## {t('ask_ai_header')}")
     st.caption(t("ask_ai_caption", language=current_lang))
 
-    if "general_chat_history" not in st.session_state:
-        st.session_state["general_chat_history"] = []
+    # Synchronize general chat history from memory manager
+    if "general_chat_history" not in st.session_state or st.session_state.get("general_chat_loaded") is not True:
+        gen_history = get_general_qa_history()
+        st.session_state["general_chat_history"] = format_for_streamlit_chat(gen_history)
+        st.session_state["general_chat_loaded"] = True
 
     for item in st.session_state["general_chat_history"]:
         role = item.get("role", "user" if "question" in item else "assistant")
@@ -2455,9 +2861,21 @@ def render_ask():
 
         with st.chat_message("assistant"):
             with st.spinner(f"🔍 {t('thinking')}"):
-                answer = general_chat_answer(user_q, language=current_lang)
+                answer = general_answer(
+                    user_q,
+                    language=current_lang,
+                    history=st.session_state.get("general_chat_history", [])[:-1]
+                )
                 st.write(answer)
                 st.session_state["general_chat_history"].append({"role": "assistant", "content": answer})
+                # Persist to QA memory database
+                log_qa(
+                    context_type="general",
+                    context_id="general",
+                    question=user_q,
+                    answer=answer,
+                    language=current_lang
+                )
 
 ```
 

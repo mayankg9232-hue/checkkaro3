@@ -1,5 +1,6 @@
-﻿import streamlit as st
+import streamlit as st
 from logic.llm_calls import answer_question
+from logic.memory_manager import log_qa, get_qa_history_for_document, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_dashboard():
@@ -162,12 +163,16 @@ def render_dashboard():
         st.markdown(f"### {t('tab_qa')} ({current_lang})")
         st.caption(t("ask_doc_caption", filename=doc_type_title, language=current_lang))
         
+        doc_id = st.session_state.get("uploaded_file_name", doc_type_title)
         context_text = st.session_state.get("doc_text", "")
         if not context_text:
             context_text = str(result)
             
-        if "chat_history" not in st.session_state:
-            st.session_state["chat_history"] = []
+        # Synchronize chat history from memory manager
+        if "chat_history" not in st.session_state or st.session_state.get("chat_doc_id") != doc_id:
+            doc_history = get_qa_history_for_document(doc_id)
+            st.session_state["chat_history"] = format_for_streamlit_chat(doc_history)
+            st.session_state["chat_doc_id"] = doc_id
 
         for msg in st.session_state["chat_history"]:
             with st.chat_message(msg["role"]):
@@ -181,6 +186,19 @@ def render_dashboard():
 
             with st.chat_message("assistant"):
                 with st.spinner(f"🤖 {t('thinking')}"):
-                    answer = answer_question(context_text, user_query, language=current_lang, history=st.session_state.get('chat_history', [])[:-1])
+                    answer = answer_question(
+                        context_text,
+                        user_query,
+                        language=current_lang,
+                        history=st.session_state.get('chat_history', [])[:-1]
+                    )
                     st.write(answer)
                     st.session_state["chat_history"].append({"role": "assistant", "content": answer})
+                    # Persist to QA memory database
+                    log_qa(
+                        context_type="document",
+                        context_id=doc_id,
+                        question=user_query,
+                        answer=answer,
+                        language=current_lang
+                    )

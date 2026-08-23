@@ -1,4 +1,4 @@
-﻿# Environment & Secret Keys
+# Environment & Secret Keys
 .env
 .env.local
 .env.*.local
@@ -42,6 +42,10 @@ ENV/
 # IDEs & System Files
 .vscode/
 .idea/
+# Database files
+*.db
+*.sqlite
+*.sqlite3
 *.swp
 *.swo
 .DS_Store

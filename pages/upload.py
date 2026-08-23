@@ -1,7 +1,8 @@
-﻿import streamlit as st
+import streamlit as st
 import time
-from logic.extract_text import get_text
+from logic.extract_text import extract_text_with_metadata
 from logic.llm_calls import analyze_document, answer_question
+from logic.memory_manager import log_qa, get_qa_history_for_document, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_upload():
@@ -56,7 +57,7 @@ def render_upload():
             st.info(t("status_extracting"))
             p_bar = st.progress(25)
             try:
-                extracted_text = get_text(uploaded_file, uploaded_file.name)
+                extracted_text, metadata = extract_text_with_metadata(uploaded_file, uploaded_file.name)
                 p_bar.progress(50)
             except Exception as e:
                 st.error(f"❌ Failed to extract text: {str(e)}")
@@ -79,11 +80,15 @@ def render_upload():
 
             # Save state
             st.session_state["doc_text"] = extracted_text
+            st.session_state["doc_metadata"] = metadata
             st.session_state["analysis_result"] = analysis
             st.session_state["context_raw"] = extracted_text
             st.session_state["uploaded_file_name"] = uploaded_file.name
             st.session_state["analyzed_language"] = current_lang
-            st.session_state["chat_history"] = []
+            
+            # Load stored document Q&A history from memory manager
+            doc_history = get_qa_history_for_document(uploaded_file.name)
+            st.session_state["chat_history"] = format_for_streamlit_chat(doc_history)
             st.session_state["step_progress"] = {}
             
             # Record in completed history
@@ -107,8 +112,15 @@ def render_upload():
     doc_type = analysis.get("doc_type", t("summary_heading"))
     summary_text = analysis.get("summary", "No summary text provided.")
     extracted_text = st.session_state.get("doc_text", "")
+    metadata = st.session_state.get("doc_metadata", {})
 
     with stage_placeholder.container():
+        # Display calm note if low-text / image pages were skipped
+        low_pages = metadata.get("low_text_pages", [])
+        if low_pages:
+            pages_str = ", ".join(map(str, low_pages))
+            st.info(f"ℹ️ Note: Page(s) {pages_str} contained image-only content with no readable text and were skipped, while all readable text across the remaining pages was fully scanned.")
+
         st.markdown(f"### 📋 {doc_type}")
         st.markdown(f"""
         <div style="background-color: var(--box-summary-bg, #f8f9fa); border-left: 4px solid var(--card-border-blue, #005A9C); padding: 18px 22px; border-radius: 8px; font-size: 16px; line-height: 1.6; color: var(--app-text, #212529); margin-bottom: 18px; border-top: 1px solid var(--box-summary-border, #e2e8f0); border-right: 1px solid var(--box-summary-border, #e2e8f0); border-bottom: 1px solid var(--box-summary-border, #e2e8f0);">
@@ -124,8 +136,11 @@ def render_upload():
     st.markdown(f"### {t('ask_doc_header')}")
     st.caption(t("ask_doc_caption", filename=uploaded_file.name, language=current_lang))
 
-    if "chat_history" not in st.session_state:
-        st.session_state["chat_history"] = []
+    # Synchronize chat history from memory manager if empty or switching
+    if "chat_history" not in st.session_state or st.session_state.get("chat_doc_id") != uploaded_file.name:
+        doc_history = get_qa_history_for_document(uploaded_file.name)
+        st.session_state["chat_history"] = format_for_streamlit_chat(doc_history)
+        st.session_state["chat_doc_id"] = uploaded_file.name
 
     for msg in st.session_state["chat_history"]:
         with st.chat_message(msg["role"]):
@@ -139,6 +154,19 @@ def render_upload():
 
         with st.chat_message("assistant"):
             with st.spinner(f"🔍 {t('thinking')}"):
-                answer = answer_question(extracted_text, user_q, language=current_lang)
+                answer = answer_question(
+                    extracted_text,
+                    user_q,
+                    language=current_lang,
+                    history=st.session_state.get("chat_history", [])[:-1]
+                )
                 st.write(answer)
                 st.session_state["chat_history"].append({"role": "assistant", "content": answer})
+                # Persist to QA memory database
+                log_qa(
+                    context_type="document",
+                    context_id=uploaded_file.name,
+                    question=user_q,
+                    answer=answer,
+                    language=current_lang
+                )

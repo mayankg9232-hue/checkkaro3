@@ -1,6 +1,7 @@
-﻿import streamlit as st
+import streamlit as st
 from logic.process_data import load_processes, format_process_for_analysis
 from logic.llm_calls import answer_question, bank_loan_info
+from logic.memory_manager import log_qa, get_qa_history_for_process, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_process_picker():
@@ -61,11 +62,12 @@ def render_process_picker():
     )
 
     selected_proc = next(p for p in processes if p["name"] == selected_name)
-    st.session_state["selected_process_id"] = selected_proc["id"]
+    proc_id = selected_proc["id"]
+    st.session_state["selected_process_id"] = proc_id
 
     disclaimer_text = None
     # Bank & Loan Type sub-selectors for Loan Documentation
-    if selected_proc.get("id") == "loan_documentation":
+    if proc_id == "loan_documentation":
         st.markdown(f"#### {t('loan_guidance_header')}")
         col_lt, col_bnk = st.columns(2)
         
@@ -88,6 +90,15 @@ def render_process_picker():
             with st.spinner(f"🔍 {t('thinking')}"):
                 loan_data = bank_loan_info(sel_bank, sel_loan_type, language=current_lang)
                 st.session_state[cache_key] = loan_data
+                # Log bank loan consultation to memory manager
+                log_qa(
+                    context_type="banking",
+                    context_id=f"loan_{sel_bank}_{sel_loan_type}",
+                    question=f"Tell me about {sel_loan_type} at {sel_bank}",
+                    answer=loan_data.get("overview", f"{sel_loan_type} overview at {sel_bank}"),
+                    language=current_lang,
+                    metadata=loan_data
+                )
         else:
             loan_data = st.session_state[cache_key]
             
@@ -109,7 +120,6 @@ def render_process_picker():
     if "completed_history" not in st.session_state:
         st.session_state["completed_history"] = []
     
-    proc_id = selected_proc.get("id", "proc")
     existing_rec = next((r for r in st.session_state["completed_history"] if r.get("id") == proc_id), None)
     if not existing_rec:
         st.session_state["completed_history"].append({
@@ -132,6 +142,9 @@ def render_process_picker():
         f"Estimated Time: {selected_proc['estimated_time']}\n"
         f"Fees: {selected_proc['fees']}"
     )
+    if disclaimer_text:
+        context_text += f"\nDisclaimer: {disclaimer_text}"
+        
     st.session_state["doc_text"] = context_text
 
     st.markdown("---")
@@ -192,7 +205,7 @@ def render_process_picker():
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-                # 3. Action Steps and Required Documents side-by-side
+        # 3. Action Steps and Required Documents side-by-side
         col_steps, col_docs = st.columns([1.2, 1])
 
         with col_steps:
@@ -220,9 +233,12 @@ def render_process_picker():
     st.markdown(f"### {t('ask_proc_header')}")
     st.caption(t("ask_proc_caption", language=current_lang))
 
-    # Render chat history
-    if "proc_chat_history" not in st.session_state:
-        st.session_state["proc_chat_history"] = []
+    # Synchronize process-specific chat history from memory manager
+    current_chat_key = f"{category}_{proc_id}"
+    if "proc_chat_history" not in st.session_state or st.session_state.get("active_proc_chat_key") != current_chat_key:
+        proc_history = get_qa_history_for_process(category, proc_id)
+        st.session_state["proc_chat_history"] = format_for_streamlit_chat(proc_history)
+        st.session_state["active_proc_chat_key"] = current_chat_key
 
     for msg in st.session_state["proc_chat_history"]:
         with st.chat_message(msg["role"]):
@@ -236,6 +252,19 @@ def render_process_picker():
 
         with st.chat_message("assistant"):
             with st.spinner(f"🔍 {t('thinking')}"):
-                answer = answer_question(context_text, user_q, language=current_lang, history=st.session_state.get('proc_chat_history', [])[:-1])
+                answer = answer_question(
+                    context_text,
+                    user_q,
+                    language=current_lang,
+                    history=st.session_state.get('proc_chat_history', [])[:-1]
+                )
                 st.write(answer)
                 st.session_state["proc_chat_history"].append({"role": "assistant", "content": answer})
+                # Persist to QA memory database
+                log_qa(
+                    context_type=category,
+                    context_id=proc_id,
+                    question=user_q,
+                    answer=answer,
+                    language=current_lang
+                )

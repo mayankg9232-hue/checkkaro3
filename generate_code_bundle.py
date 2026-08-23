@@ -15,6 +15,7 @@ files_to_include = [
     "logic/llm_calls.py",
     "logic/process_data.py",
     "logic/grok_calls.py",
+    "logic/memory_manager.py",
     "pages/login.py",
     "pages/home.py",
     "pages/upload.py",

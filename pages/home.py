@@ -1,5 +1,6 @@
-﻿import streamlit as st
-from logic.llm_calls import general_chat_answer
+import streamlit as st
+from logic.grok_calls import general_answer
+from logic.memory_manager import log_qa, get_general_qa_history, format_for_streamlit_chat
 from logic.translations import t, get_normalized_language
 
 def show_home():
@@ -37,8 +38,11 @@ def render_home():
         st.markdown(f"### {t('ask_ai_header')}")
         st.caption(t("ask_ai_caption", language=current_lang))
 
-        if "general_chat_history" not in st.session_state:
-            st.session_state["general_chat_history"] = []
+        # Synchronize general chat history
+        if "general_chat_history" not in st.session_state or st.session_state.get("general_chat_loaded") is not True:
+            gen_history = get_general_qa_history()
+            st.session_state["general_chat_history"] = format_for_streamlit_chat(gen_history)
+            st.session_state["general_chat_loaded"] = True
 
         for msg in st.session_state["general_chat_history"]:
             with st.chat_message(msg["role"]):
@@ -52,13 +56,21 @@ def render_home():
 
             with st.chat_message("assistant"):
                 with st.spinner(f"🔍 {t('thinking')}"):
-                    reply = general_chat_answer(
+                    reply = general_answer(
                         question=user_prompt,
                         history=st.session_state["general_chat_history"][:-1],
                         language=current_lang
                     )
                     st.write(reply)
                     st.session_state["general_chat_history"].append({"role": "assistant", "content": reply})
+                    # Persist to QA memory database
+                    log_qa(
+                        context_type="general",
+                        context_id="general",
+                        question=user_prompt,
+                        answer=reply,
+                        language=current_lang
+                    )
 
     st.markdown("---")
 

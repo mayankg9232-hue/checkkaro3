@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 import os
 from streamlit.testing.v1 import AppTest
 from logic.extract_text import extract_text
@@ -33,26 +33,25 @@ class TestDocAssistantApp(unittest.TestCase):
         at.run()
         
         # Navigate to Process Picker
-        btn_proc = [b for b in at.button if "Government" in (b.label or "") or "Process" in (b.label or "") or (b.key and "btn_choose_process" in b.key)]
+        btn_proc = [b for b in at.button if "Government" in (b.label or "") or "Process" in (b.label or "") or (b.key and "btn_main_govt" in b.key)]
         self.assertTrue(len(btn_proc) > 0)
         btn_proc[0].click().run()
         
         self.assertEqual(at.session_state["page"], "process_picker")
         print("[OK] Navigated to Process Picker")
         
-        # Select first process guide (PAN Card)
-        view_guide_btns = [b for b in at.button if "View Guide" in (b.label or "")]
-        self.assertTrue(len(view_guide_btns) >= 3)
-        view_guide_btns[0].click().run()
+        # Click Open Action Dashboard button
+        btn_open_dash = [b for b in at.button if (b.key and "btn_proc_open_dashboard" in b.key)]
+        self.assertTrue(len(btn_open_dash) > 0)
+        btn_open_dash[0].click().run()
         
         self.assertEqual(at.session_state["page"], "dashboard")
         self.assertIsNotNone(at.session_state["analysis_result"])
         result = at.session_state["analysis_result"]
-        self.assertIn("PAN", result["doc_type"])
         self.assertTrue(len(result["steps"]) > 0)
         self.assertTrue(len(result["required_documents"]) > 0)
         self.assertIn("authority", result)
-        print("[OK] Loaded PAN Card Guide into Dashboard with correct schema")
+        print("[OK] Loaded Process Guide into Dashboard with correct schema")
         
         # Test checkbox toggle in Steps Tab
         if len(at.checkbox) > 0:
@@ -94,27 +93,23 @@ class TestDocAssistantApp(unittest.TestCase):
         ans_unknown = answer_question(text_docx, q_unknown, language="English")
         print(f"[OK] Q&A Unknown Query Response: {ans_unknown.encode('ascii', 'replace').decode()}")
         
-    def test_04_sidebar_start_over(self):
-        print("\n--- Testing Start Over & Reset ---")
+    def test_04_sidebar_sign_out(self):
+        print("\n--- Testing Sign Out & Reset ---")
         at = AppTest.from_file("app.py", default_timeout=15)
         at.run()
         
         at.session_state["user"] = {"name": "Test User", "email": "test@test.com"}
-        at.session_state["page"] = "dashboard"
-        at.session_state["analysis_result"] = {"doc_type": "Test", "summary": "Summary", "steps": []}
-        at.session_state["chat_history"] = [{"role": "user", "content": "Hi"}]
+        at.session_state["page"] = "home"
         at.run()
         
-        # Find Start Over button
-        btn_start_over = [b for b in at.button if "Start Over" in (b.label or "")]
-        self.assertTrue(len(btn_start_over) > 0)
-        btn_start_over[0].click().run()
+        # Find Sign Out button
+        btn_sign_out = [b for b in at.button if (b.key and "side_nav_signout" in b.key)]
+        self.assertTrue(len(btn_sign_out) > 0)
+        btn_sign_out[0].click().run()
         
-        self.assertEqual(at.session_state["page"], "home")
-        self.assertIsNone(at.session_state["analysis_result"])
-        self.assertEqual(len(at.session_state["chat_history"]), 0)
-        self.assertEqual(at.session_state["user"]["name"], "Test User")
-        print("[OK] Start Over reset state cleanly back to Home")
+        self.assertEqual(at.session_state["page"], "login")
+        self.assertTrue("user" not in at.session_state or at.session_state["user"] is None)
+        print("[OK] Sign Out reset state cleanly back to Login")
 
 if __name__ == "__main__":
     unittest.main()
